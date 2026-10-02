@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+
+# Ansible & Keys
+*.pem
+kubeconfig
+ansible/inventory.ini
+
+# IDE
+.vscode/
+.idea/
+.venv/
