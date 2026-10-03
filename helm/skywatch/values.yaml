@@ -1,6 +1,12 @@
 frontend:
   image:
-    tag: 0972a7a
+    repository: ghcr.io/hananva2-blip/skywatch-frontend
+    tag: 5632af0
+
 worker:
   image:
-    tag: 0972a7a
+    repository: ghcr.io/hananva2-blip/skywatch-worker
+    tag: 5632af0
+
+rabbitmq:
+  image: rabbitmq:3-management

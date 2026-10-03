@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skywatch-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: skywatch-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skywatch-worker
+  template:
+    metadata:
+      labels:
+        app: skywatch-worker
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          imagePullPolicy: Always
+          env:
+            - name: RABBITMQ_HOST
+              value: "rabbitmq"
+            - name: RABBITMQ_PORT
+              value: "5672"
+            - name: RABBITMQ_USER
+              value: "guest"
+            - name: RABBITMQ_PASSWORD
+              value: "guest"
