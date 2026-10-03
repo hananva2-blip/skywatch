@@ -28,8 +28,27 @@ jobs:
       - name: Run lint check
         run: flake8 app/frontend/app.py app/worker/worker.py --max-line-length=120
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r app/frontend/requirements.txt
+          pip install pytest pytest-mock
+
+      - name: Run Pytest
+        run: pytest -v tests/
+
   build-and-push:
-    needs: lint
+    needs: [lint, test]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
