@@ -21,6 +21,22 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
           env:
             - name: RABBITMQ_HOST
               value: "rabbitmq"
