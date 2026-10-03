@@ -1,0 +1,6 @@
+apiVersion: v2
+name: skywatch
+description: A Helm chart for SkyWatch distributed weather pipeline
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
