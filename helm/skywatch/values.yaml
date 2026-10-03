@@ -1,0 +1,6 @@
+frontend:
+  image:
+    tag: 5632af0
+worker:
+  image:
+    tag: 5632af0
