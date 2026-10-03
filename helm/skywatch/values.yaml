@@ -1,6 +1,6 @@
 frontend:
   image:
-    tag: 5632af0
+    tag: 0972a7a
 worker:
   image:
-    tag: 5632af0
+    tag: 0972a7a
