@@ -1,10 +1,10 @@
 frontend:
   image:
     repository: ghcr.io/hananva2-blip/skywatch-frontend
-    tag: "5325654"
+    tag: "79af750"
 worker:
   image:
     repository: ghcr.io/hananva2-blip/skywatch-worker
-    tag: "5325654"
+    tag: "79af750"
 rabbitmq:
   image: rabbitmq:3-management
