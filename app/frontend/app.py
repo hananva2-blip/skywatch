@@ -2,8 +2,12 @@ import json
 import os
 import pika
 from flask import Flask, jsonify, render_template_string, request
+from prometheus_flask_exporter import PrometheusMetrics
+
 
 app = Flask(__name__)
+metrics = PrometheusMetrics(app)
+
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
 RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))

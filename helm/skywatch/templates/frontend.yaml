@@ -20,7 +20,8 @@ spec:
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           imagePullPolicy: Always
           ports:
-            - containerPort: 5000
+            - name: http
+              containerPort: 5000
           livenessProbe:
             httpGet:
               path: /healthz
@@ -52,9 +53,28 @@ kind: Service
 metadata:
   name: skywatch-frontend
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: skywatch-frontend
 spec:
   selector:
     app: skywatch-frontend
   ports:
-    - port: 5000
+    - name: http
+      port: 5000
       targetPort: 5000
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: skywatch-frontend-monitor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: skywatch-frontend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
