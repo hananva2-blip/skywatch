@@ -23,12 +23,16 @@ spec:
               name: amqp
             - containerPort: 15672
               name: management
+            - containerPort: 15692
+              name: prometheus
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: rabbitmq
   namespace: {{ .Release.Namespace }}
+  labels:
+    app: rabbitmq
 spec:
   selector:
     app: rabbitmq
@@ -39,3 +43,21 @@ spec:
     - name: management
       port: 15672
       targetPort: 15672
+    - name: prometheus
+      port: 15692
+      targetPort: 15692
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: skywatch-rabbitmq
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app: rabbitmq
+  endpoints:
+    - port: prometheus
+      interval: 30s
