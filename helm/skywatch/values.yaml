@@ -2,22 +2,20 @@
 frontend:
   image:
     repository: ghcr.io/hananva2-blip/skywatch-frontend
-    tag: "68ec2f3"
+    tag: "e2806b6"
   replicas: 1
   nodePort: 30080
   resources:
-    requests: { cpu: 50m, memory: 64Mi }
-    limits: { cpu: 200m, memory: 128Mi }
-
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 200m, memory: 128Mi}
 worker:
   image:
     repository: ghcr.io/hananva2-blip/skywatch-worker
-    tag: "68ec2f3"
+    tag: "e2806b6"
   replicas: 2
   resources:
-    requests: { cpu: 25m, memory: 48Mi }
-    limits: { cpu: 100m, memory: 96Mi }
-
+    requests: {cpu: 25m, memory: 48Mi}
+    limits: {cpu: 100m, memory: 96Mi}
 rabbitmq:
   image: rabbitmq:3.13-management
   # Course setting only: in production keep this out of Git (Sealed Secrets / External Secrets)
@@ -26,13 +24,11 @@ rabbitmq:
     password: skywatch-rabbit
   storage: 1Gi
   resources:
-    requests: { cpu: 100m, memory: 128Mi }
-    limits: { cpu: 500m, memory: 256Mi }
-
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 256Mi}
 # All app pods run on worker2; ArgoCD lives on worker1, the master is tainted
 nodeSelector:
   kubernetes.io/hostname: skywatch-worker2
-
 monitoring:
   # Rendered only if the ServiceMonitor CRD (kube-prometheus-stack) exists in the cluster
   serviceMonitors: true
