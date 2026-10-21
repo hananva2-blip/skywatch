@@ -97,11 +97,23 @@ grafana:
     periodSeconds: 10
     timeoutSeconds: 30
     failureThreshold: 10
+  # /api/health takes 2-3 s while dashboards load; the default 1 s timeout marked the pod
+  # unready and the NodePort stopped answering
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: grafana
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 6
   # Course setting only: change it, or use grafana.admin.existingSecret
   adminPassword: "skywatch-grafana"
   resources:
     requests: { cpu: 50m, memory: 128Mi }
-    limits: { cpu: 300m, memory: 256Mi }
+    # 300m throttled Grafana while it rendered dashboards; the master has 2 vCPUs.
+    # At 256Mi the cgroup kept evicting Grafana's page cache and it re-read its files from
+    # disk at ~140 MB/s (the gp3 limit), so every request took 10-20 s.
+    limits: { cpu: 1000m, memory: 512Mi }
   sidecar:
     resources:
       requests: { cpu: 10m, memory: 64Mi }
