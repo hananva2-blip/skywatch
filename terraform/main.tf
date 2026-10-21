@@ -103,9 +103,11 @@ locals {
 }
 
 resource "aws_instance" "nodes" {
-  for_each               = local.instances
-  ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t3.micro" # free tier: 1 vCPU, 1 GB RAM
+  for_each = local.instances
+  ami      = data.aws_ami.ubuntu.id
+  # Workers fit the free-tier t3.micro (1 GB). The master needs t3.small (2 GB): on 1 GB the
+  # K3s API server could not register the ArgoCD + Prometheus CRDs and crash-looped.
+  instance_type          = each.key == "master" ? "t3.small" : "t3.micro"
   key_name               = "skywatch-key"
   vpc_security_group_ids = [aws_security_group.skywatch_sg.id]
 
