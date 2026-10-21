@@ -1,6 +1,6 @@
 # Slim kube-prometheus-stack overrides for t3.micro nodes.
-# Prometheus runs on worker2 next to the app; the lighter components go to worker1
-# (with ArgoCD), because worker2 ran out of memory with everything on it.
+# Placement follows the measured memory budget (see README): Prometheus next to the app on
+# worker2, operator and kube-state-metrics on worker1 with ArgoCD, Grafana on the master.
 # Install: see "Monitoring" in README.md (CRDs first, then helm install --skip-crds)
 
 alertmanager:
@@ -72,12 +72,21 @@ prometheus:
       requests: { cpu: 100m, memory: 256Mi }
       limits: { cpu: 500m, memory: 384Mi }
 
+# Grafana and its two sidecars need ~230 MB: too much for worker1 next to ArgoCD,
+# so it runs on the t3.small master, which has ~600 MB spare
 grafana:
   nodeSelector:
-    kubernetes.io/hostname: skywatch-worker
+    kubernetes.io/hostname: skywatch-master
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
   service:
     type: NodePort
     nodePort: 30030
+  # A rolling update runs two Grafana pods at once, which overloaded the 1 GB node
+  deploymentStrategy:
+    type: Recreate
   # First-start DB migrations take several minutes on a 1 GB node; the default
   # 60 s delay restarted Grafana in the middle of them, over and over
   livenessProbe:
@@ -91,4 +100,9 @@ grafana:
   # Course setting only: change it, or use grafana.admin.existingSecret
   adminPassword: "skywatch-grafana"
   resources:
-    limits: { cpu: 200m, memory: 128Mi }
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 300m, memory: 256Mi }
+  sidecar:
+    resources:
+      requests: { cpu: 10m, memory: 64Mi }
+      limits: { cpu: 100m, memory: 128Mi }
