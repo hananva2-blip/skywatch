@@ -69,8 +69,8 @@ The workers are `t3.micro` (free tier) and the master is `t3.small`; see [Why th
 
 | Node | Type | Workloads |
 |---|---|---|
-| skywatch-master | t3.small | K3s control plane only |
-| skywatch-worker | t3.micro | ArgoCD, Grafana, Prometheus operator, kube-state-metrics |
+| skywatch-master | t3.small | K3s control plane, Grafana |
+| skywatch-worker | t3.micro | ArgoCD, Prometheus operator, kube-state-metrics |
 | skywatch-worker2 | t3.micro | SkyWatch app, Prometheus |
 
 ```bash
@@ -95,7 +95,7 @@ cd terraform && terraform destroy
 |---|---|
 | SkyWatch | `http://<worker2-ip>:30080` |
 | ArgoCD | `https://<any-node-ip>:30081` (admin / printed by the script) |
-| Grafana | `http://<any-node-ip>:30030` (admin / skywatch-grafana) |
+| Grafana | `http://<master-ip>:30030` (admin / skywatch-grafana) |
 | RabbitMQ management | `kubectl port-forward svc/rabbitmq -n skywatch 15672:15672` |
 
 ## Lessons learned
@@ -111,11 +111,27 @@ The course spec asks for three `t3.micro` nodes (1 vCPU, 1 GB RAM). Workers run 
 
 Disabling metrics-server and Prometheus scraping of the master reduced load but could not fix (4), since it happens before any workload runs. The master was moved to `t3.small` (2 GB, about $0.02/hour in eu-west-1); the workers stay on `t3.micro`. Destroy the cluster after every session.
 
+### Memory budget
+
+Measured on the running cluster (RSS per process, `free -m`). Placement is planned so every node keeps headroom; when a 1 GB node runs out it does not fail fast, it swaps until the kubelet and SSH stop responding.
+
+| Node | RAM | Main consumers | Free |
+|---|---|---|---|
+| master (t3.small) | 1910 MB | k3s-server ~990, containerd ~130, CoreDNS ~50, Grafana + 2 sidecars ~230 | ~400 MB |
+| worker1 (t3.micro) | 914 MB | k3s-agent ~90, ArgoCD (controller, repo-server, server, redis) ~210, operator + kube-state-metrics ~45 | ~330 MB |
+| worker2 (t3.micro) | 914 MB | k3s-agent ~85, RabbitMQ ~140, Prometheus ~115, frontend + 2 workers ~90 | ~160 MB |
+
+What it took to fit:
+
+- ArgoCD's Dex, notifications and ApplicationSet controllers are scaled to 0 (unused).
+- Alertmanager, metrics-server and Traefik are disabled; Prometheus keeps 24 h and scrapes every 60 s.
+- Grafana started on worker1 and froze it twice (ArgoCD + Grafana + 2 sidecars > 1 GB). It now runs on the master with a toleration and a `Recreate` strategy, so an upgrade never runs two Grafana pods at once.
+
 ### Other findings
 
 | Finding | Takeaway |
 |---|---|
-| Worker2 thrashed with Prometheus, Grafana, the operator and the app on 1 GB | Keep only Prometheus next to the app; put the light monitoring components on the ArgoCD node |
+| Worker2 thrashed with Prometheus, Grafana, the operator and the app on 1 GB | Measure RSS per node and plan placement; keep only Prometheus next to the app |
 | The latest-Ubuntu AMI lookup makes `terraform plan` replace all nodes whenever Canonical publishes a new image | Fine for a destroy-every-session cluster; add `lifecycle { ignore_changes = [ami] }` for a long-lived one |
 | Default EC2 hostnames (`ip-172-...`) broke `kubernetes.io/hostname` node selectors | Pass `--node-name` to K3s |
 | The master instance type was changed in the AWS console, outside Terraform | Change infrastructure only through Terraform, or `plan` shows drift |
