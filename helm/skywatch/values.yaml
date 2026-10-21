@@ -2,7 +2,7 @@
 frontend:
   image:
     repository: ghcr.io/hananva2-blip/skywatch-frontend
-    tag: "e2806b6"
+    tag: "92f00b7"
   replicas: 1
   nodePort: 30080
   resources:
@@ -11,7 +11,7 @@ frontend:
 worker:
   image:
     repository: ghcr.io/hananva2-blip/skywatch-worker
-    tag: "e2806b6"
+    tag: "92f00b7"
   replicas: 2
   resources:
     requests: {cpu: 25m, memory: 48Mi}
