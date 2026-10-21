@@ -96,21 +96,21 @@ resource "aws_security_group" "skywatch_sg" {
 # 4. הגדרת שרתי ה-EC2
 locals {
   instances = {
-    master   = "skywatch-master"
-    worker1  = "skywatch-worker"
-    worker2  = "skywatch-worker2"
+    master  = "skywatch-master"
+    worker1 = "skywatch-worker"
+    worker2 = "skywatch-worker2"
   }
 }
 
 resource "aws_instance" "nodes" {
   for_each               = local.instances
   ami                    = data.aws_ami.ubuntu.id
-  instance_type = each.key == "master" ? "t3.small" : "t3.micro"
+  instance_type          = "t3.micro" # free tier: 1 vCPU, 1 GB RAM
   key_name               = "skywatch-key"
   vpc_security_group_ids = [aws_security_group.skywatch_sg.id]
 
   root_block_device {
-    volume_size           = 20
+    volume_size           = 10 # 3 x 10 GB = 30 GB, the EBS free-tier limit
     volume_type           = "gp3"
     delete_on_termination = true
   }

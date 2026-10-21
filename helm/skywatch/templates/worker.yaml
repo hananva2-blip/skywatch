@@ -6,7 +6,7 @@ metadata:
   labels:
     app: skywatch-worker
 spec:
-  replicas: 1
+  replicas: {{ .Values.worker.replicas }}
   selector:
     matchLabels:
       app: skywatch-worker
@@ -14,17 +14,16 @@ spec:
     metadata:
       labels:
         app: skywatch-worker
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/rabbitmq-secret.yaml") . | sha256sum }}
     spec:
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
       containers:
         - name: worker
           image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
-            - name: RABBITMQ_HOST
-              value: "rabbitmq"
-            - name: RABBITMQ_PORT
-              value: "5672"
-            - name: RABBITMQ_USER
-              value: "guest"
-            - name: RABBITMQ_PASSWORD
-              value: "guest"
+            {{- include "skywatch.rabbitmqEnv" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
