@@ -40,17 +40,36 @@
       changed_when: false
       failed_when: false
 
+    # Server options live in the config file, so changing them also reaches a running master.
+    # metrics-server is disabled: it crash-looped and loaded the 1 GB master's API server.
+    - name: Create K3s config directory
+      file:
+        path: /etc/rancher/k3s
+        state: directory
+        mode: "0755"
+
+    - name: Write K3s server config
+      copy:
+        dest: /etc/rancher/k3s/config.yaml
+        mode: "0600"
+        content: |
+          node-name: {{ inventory_hostname }}
+          tls-san:
+            - {{ ansible_host }}
+          disable:
+            - traefik
+            - metrics-server
+          node-taint:
+            - node-role.kubernetes.io/control-plane:NoSchedule
+          write-kubeconfig-mode: "0644"
+      register: k3s_config
+
+    # Re-running the installer on a live master keeps its data and only rewrites the service
     - name: Install K3s server
-      shell: |
-        curl -sfL https://get.k3s.io | sh -s - server \
-          --node-name {{ inventory_hostname }} \
-          --tls-san {{ ansible_host }} \
-          --disable traefik \
-          --node-taint node-role.kubernetes.io/control-plane:NoSchedule \
-          --write-kubeconfig-mode 644
+      shell: curl -sfL https://get.k3s.io | sh -s - server
       environment:
         INSTALL_K3S_VERSION: "{{ k3s_version }}"
-      when: k3s_status.stdout != "active"
+      when: k3s_status.stdout != "active" or k3s_config.changed
 
     - name: Wait for node token
       wait_for:

@@ -1,4 +1,6 @@
 # Slim kube-prometheus-stack overrides for t3.micro nodes.
+# Prometheus runs on worker2 next to the app; the lighter components go to worker1
+# (with ArgoCD), because worker2 ran out of memory with everything on it.
 # Install: see "Monitoring" in README.md (CRDs first, then helm install --skip-crds)
 
 alertmanager:
@@ -14,35 +16,78 @@ kubeScheduler:
 kubeProxy:
   enabled: false
 
+# Keep scrape load off the 1 GB master: its API server timed out under monitoring load
+kubeApiServer:
+  enabled: false
+
+kubelet:
+  serviceMonitor:
+    probes: false
+    resource: false
+    relabelings:
+      - action: replace
+        sourceLabels: [__metrics_path__]
+        targetLabel: metrics_path
+      - action: drop
+        sourceLabels: [__meta_kubernetes_endpoint_address_target_name]
+        regex: skywatch-master
+    cAdvisorRelabelings:
+      - action: replace
+        sourceLabels: [__metrics_path__]
+        targetLabel: metrics_path
+      - action: drop
+        sourceLabels: [__meta_kubernetes_endpoint_address_target_name]
+        regex: skywatch-master
+
+prometheus-node-exporter:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
 prometheusOperator:
   nodeSelector:
-    kubernetes.io/hostname: skywatch-worker2
+    kubernetes.io/hostname: skywatch-worker
   resources:
     limits: { cpu: 200m, memory: 128Mi }
 
 kube-state-metrics:
   nodeSelector:
-    kubernetes.io/hostname: skywatch-worker2
+    kubernetes.io/hostname: skywatch-worker
   resources:
     limits: { cpu: 100m, memory: 64Mi }
 
 prometheus:
   prometheusSpec:
     retention: 24h
+    scrapeInterval: 60s
     # Pick up the skywatch ServiceMonitors in any namespace
     serviceMonitorSelectorNilUsesHelmValues: false
     nodeSelector:
       kubernetes.io/hostname: skywatch-worker2
     resources:
       requests: { cpu: 100m, memory: 256Mi }
-      limits: { cpu: 500m, memory: 512Mi }
+      limits: { cpu: 500m, memory: 384Mi }
 
 grafana:
   nodeSelector:
-    kubernetes.io/hostname: skywatch-worker2
+    kubernetes.io/hostname: skywatch-worker
   service:
     type: NodePort
     nodePort: 30030
+  # First-start DB migrations take several minutes on a 1 GB node; the default
+  # 60 s delay restarted Grafana in the middle of them, over and over
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: grafana
+    initialDelaySeconds: 600
+    periodSeconds: 10
+    timeoutSeconds: 30
+    failureThreshold: 10
   # Course setting only: change it, or use grafana.admin.existingSecret
   adminPassword: "skywatch-grafana"
   resources:

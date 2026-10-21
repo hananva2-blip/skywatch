@@ -20,7 +20,12 @@ for deploy in argocd-server argocd-repo-server argocd-applicationset-controller 
 done
 kubectl patch statefulset argocd-application-controller -n argocd -p "$NODE_SELECTOR"
 
+# Not used here (no SSO, notifications or ApplicationSets); frees ~100 MB on the 1 GB node
+kubectl scale deployment -n argocd argocd-dex-server argocd-notifications-controller \
+  argocd-applicationset-controller --replicas=0
+
 kubectl apply -f argocd/application.yaml
 
+until kubectl -n argocd get secret argocd-initial-admin-secret >/dev/null 2>&1; do sleep 5; done
 echo "ArgoCD admin password:"
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
