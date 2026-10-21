@@ -3,6 +3,7 @@ import logging
 import os
 import time
 import pika
+import requests
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -12,12 +13,72 @@ RABBITMQ_USER = os.getenv("RABBITMQ_USER", "guest")
 RABBITMQ_PASSWORD = os.getenv("RABBITMQ_PASSWORD", "guest")
 QUEUE_NAME = "weather_queries"
 
+GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
+FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+HTTP_TIMEOUT = 10
+
+
+class CityNotFound(Exception):
+    pass
+
+
+def fetch_weather(city):
+    geo = requests.get(GEOCODING_URL, params={"name": city, "count": 1}, timeout=HTTP_TIMEOUT)
+    geo.raise_for_status()
+    results = geo.json().get("results")
+    if not results:
+        raise CityNotFound(city)
+    place = results[0]
+
+    forecast = requests.get(
+        FORECAST_URL,
+        params={
+            "latitude": place["latitude"],
+            "longitude": place["longitude"],
+            "current": "temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code",
+        },
+        timeout=HTTP_TIMEOUT,
+    )
+    forecast.raise_for_status()
+    current = forecast.json()["current"]
+
+    return {
+        "city": place["name"],
+        "country": place.get("country"),
+        "latitude": place["latitude"],
+        "longitude": place["longitude"],
+        "temperature_c": current["temperature_2m"],
+        "humidity_pct": current["relative_humidity_2m"],
+        "wind_speed_kmh": current["wind_speed_10m"],
+        "weather_code": current["weather_code"],
+        "time": current["time"],
+    }
+
+
+def handle_query(city):
+    try:
+        return {"status": "done", "weather": fetch_weather(city)}
+    except CityNotFound:
+        return {"status": "error", "error": f"City '{city}' not found"}
+    except requests.RequestException as exc:
+        return {"status": "error", "error": f"Weather API request failed: {exc}"}
+
 
 def callback(ch, method, properties, body):
     try:
         data = json.loads(body.decode("utf-8"))
-        city = data.get("city", "Unknown")
+        city = data.get("city", "").strip()
         logging.info("Processing weather query for city: %s", city)
+        result = handle_query(city)
+        logging.info("Result for %s: %s", city, result)
+
+        if properties.reply_to:
+            ch.basic_publish(
+                exchange="",
+                routing_key=properties.reply_to,
+                body=json.dumps(result),
+                properties=pika.BasicProperties(correlation_id=properties.correlation_id),
+            )
         ch.basic_ack(delivery_tag=method.delivery_tag)
     except Exception as exc:
         logging.error("Failed to process message: %s", exc)

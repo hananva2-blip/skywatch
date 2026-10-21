@@ -1,0 +1,49 @@
+# Slim kube-prometheus-stack overrides for t3.micro nodes.
+# Install: see "Monitoring" in README.md (CRDs first, then helm install --skip-crds)
+
+alertmanager:
+  enabled: false        # saves ~100 MB RAM
+
+# The control plane components are not reachable for scraping on K3s
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheusOperator:
+  nodeSelector:
+    kubernetes.io/hostname: skywatch-worker2
+  resources:
+    limits: { cpu: 200m, memory: 128Mi }
+
+kube-state-metrics:
+  nodeSelector:
+    kubernetes.io/hostname: skywatch-worker2
+  resources:
+    limits: { cpu: 100m, memory: 64Mi }
+
+prometheus:
+  prometheusSpec:
+    retention: 24h
+    # Pick up the skywatch ServiceMonitors in any namespace
+    serviceMonitorSelectorNilUsesHelmValues: false
+    nodeSelector:
+      kubernetes.io/hostname: skywatch-worker2
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { cpu: 500m, memory: 512Mi }
+
+grafana:
+  nodeSelector:
+    kubernetes.io/hostname: skywatch-worker2
+  service:
+    type: NodePort
+    nodePort: 30030
+  # Course setting only: change it, or use grafana.admin.existingSecret
+  adminPassword: "skywatch-grafana"
+  resources:
+    limits: { cpu: 200m, memory: 128Mi }

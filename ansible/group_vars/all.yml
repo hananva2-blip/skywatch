@@ -1,0 +1,5 @@
+---
+# v1.35 OOMs on t3.micro (1 GB RAM); this release is stable there.
+k3s_version: v1.29.5+k3s1
+swap_size_mb: 2048
+kubeconfig_path: "{{ playbook_dir }}/../kubeconfig"

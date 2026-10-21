@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: skywatch
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/hananva2-blip/skywatch.git'
+    targetRevision: main
+    path: helm/skywatch
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: skywatch
+  # The API server adds default fields (storageClassName, volumeMode) to the
+  # StatefulSet volumeClaimTemplates, which would show as perpetual OutOfSync
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      name: rabbitmq
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

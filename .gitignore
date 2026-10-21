@@ -21,3 +21,6 @@ ansible/inventory.ini
 .vscode/
 .idea/
 .venv/
+
+# Test cache
+.pytest_cache/

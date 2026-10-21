@@ -12,4 +12,7 @@ COPY app.py .
 
 EXPOSE 5000
 
+RUN useradd --create-home --uid 1000 appuser
+USER appuser
+
 CMD ["python", "app.py"]

@@ -1,11 +1,12 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: rabbitmq
   namespace: {{ .Release.Namespace }}
   labels:
     app: rabbitmq
 spec:
+  serviceName: rabbitmq-headless
   replicas: 1
   selector:
     matchLabels:
@@ -14,10 +15,17 @@ spec:
     metadata:
       labels:
         app: rabbitmq
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/rabbitmq-secret.yaml") . | sha256sum }}
     spec:
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
       containers:
         - name: rabbitmq
           image: {{ .Values.rabbitmq.image }}
+          envFrom:
+            - secretRef:
+                name: skywatch-rabbitmq
           ports:
             - containerPort: 5672
               name: amqp
@@ -25,6 +33,46 @@ spec:
               name: management
             - containerPort: 15692
               name: prometheus
+          # TCP probes: the rabbitmq-diagnostics exec probe times out under memory pressure
+          readinessProbe:
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.rabbitmq.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.rabbitmq.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: rabbitmq
+spec:
+  clusterIP: None
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
 ---
 apiVersion: v1
 kind: Service
@@ -46,6 +94,7 @@ spec:
     - name: prometheus
       port: 15692
       targetPort: 15692
+{{- if include "skywatch.serviceMonitorsEnabled" . }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -61,3 +110,4 @@ spec:
   endpoints:
     - port: prometheus
       interval: 30s
+{{- end }}
