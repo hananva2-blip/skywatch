@@ -135,4 +135,3 @@ What it took to fit:
 | The latest-Ubuntu AMI lookup makes `terraform plan` replace all nodes whenever Canonical publishes a new image | Fine for a destroy-every-session cluster; add `lifecycle { ignore_changes = [ami] }` for a long-lived one |
 | Default EC2 hostnames (`ip-172-...`) broke `kubernetes.io/hostname` node selectors | Pass `--node-name` to K3s |
 | The master instance type was changed in the AWS console, outside Terraform | Change infrastructure only through Terraform, or `plan` shows drift |
-
