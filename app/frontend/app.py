@@ -145,7 +145,9 @@ def query_weather():
     if reply is None:
         return jsonify({"error": "Timed out waiting for a worker", "city": city}), 504
     if reply.get("status") == "error":
-        return jsonify({"error": reply["error"], "city": city}), 404
+        # An unknown city is the user's mistake (404); a failing weather API is ours (502)
+        code = 404 if reply.get("reason") == "not_found" else 502
+        return jsonify({"error": reply["error"], "city": city}), code
     return jsonify({"status": "done", "city": city, "weather": reply["weather"]}), 200
 
 
@@ -155,4 +157,5 @@ def health():
 
 
 if __name__ == "__main__":
+    # Local development only; the container runs gunicorn (see Dockerfile)
     app.run(host="0.0.0.0", port=5000)

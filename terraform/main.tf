@@ -16,14 +16,26 @@ provider "aws" {
   region = "eu-west-1"
 }
 
-# 1. ברירת המחדל של ה-VPC
+# SSH and the K3s API are opened only to this range, e.g. your own IP:
+#   terraform apply -var="admin_cidr=$(curl -s https://checkip.amazonaws.com)/32"
+variable "admin_cidr" {
+  description = "CIDR allowed to reach SSH (22) and the K3s API (6443)"
+  type        = string
+
+  validation {
+    condition     = can(cidrhost(var.admin_cidr, 0)) && var.admin_cidr != "0.0.0.0/0"
+    error_message = "admin_cidr must be a valid CIDR and not 0.0.0.0/0."
+  }
+}
+
+# 1. The default VPC
 resource "aws_default_vpc" "default" {
   tags = {
     Name = "Default VPC"
   }
 }
 
-# 2. איתור דינמי של Ubuntu 22.04 LTS AMI העדכני
+# 2. Latest Ubuntu 22.04 LTS AMI
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
@@ -47,23 +59,23 @@ resource "aws_security_group" "skywatch_sg" {
 
   # SSH
   ingress {
-    description = "SSH"
+    description = "SSH from the admin only"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.admin_cidr]
   }
 
   # K3s API Server
   ingress {
-    description = "K3s API Server"
+    description = "K3s API Server from the admin only"
     from_port   = 6443
     to_port     = 6443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.admin_cidr]
   }
 
-  # NodePort טווח שירותים
+  # NodePort service range (the app's public entry point)
   ingress {
     description = "Kubernetes NodePort services"
     from_port   = 30000
@@ -72,7 +84,7 @@ resource "aws_security_group" "skywatch_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Intra-cluster תקשורת חופשית בין שרתי הקלאסטר
+  # Intra-cluster traffic between the nodes
   ingress {
     description = "Intra-cluster internal traffic"
     from_port   = 0
@@ -93,7 +105,7 @@ resource "aws_security_group" "skywatch_sg" {
   }
 }
 
-# 4. הגדרת שרתי ה-EC2
+# 4. The EC2 nodes
 locals {
   instances = {
     master  = "skywatch-master"
@@ -123,7 +135,7 @@ resource "aws_instance" "nodes" {
   }
 }
 
-# 5. יצירה אוטומטית של קובץ Ansible Inventory
+# 5. Generate the Ansible inventory
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/inventory.tmpl", {
     master_public_ip   = aws_instance.nodes["master"].public_ip

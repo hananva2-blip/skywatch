@@ -52,6 +52,7 @@ def test_handle_query_api_failure(mocker):
 
     result = worker.handle_query("Haifa")
     assert result["status"] == "error"
+    assert result["reason"] == "upstream"
     assert "Weather API request failed" in result["error"]
 
 

@@ -15,4 +15,5 @@ EXPOSE 5000
 RUN useradd --create-home --uid 1000 appuser
 USER appuser
 
-CMD ["python", "app.py"]
+# A production WSGI server instead of Flask's development server
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "app:app"]

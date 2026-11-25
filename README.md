@@ -54,7 +54,7 @@ On every push and pull request to `main`:
 - the `/healthz` endpoint used by Kubernetes probes
 - a successful query: the job is published to the durable queue with a reply-to address and the worker's reply is returned
 - input validation: an empty or whitespace-only city returns `400`
-- unknown city `404`, worker timeout `504`, RabbitMQ connection error `500`
+- unknown city `404`, weather API down `502`, worker timeout `504`, RabbitMQ connection error `500`
 
 `tests/test_worker.py` covers the Open-Meteo lookup (mocked HTTP), unknown cities, API failures, and that the worker replies and acks (or nacks bad messages).
 
@@ -75,7 +75,8 @@ The workers are `t3.micro` (free tier) and the master is `t3.small`; see [Why th
 
 ```bash
 # 1. Provision 3 EC2 nodes and generate the Ansible inventory
-cd terraform && terraform init && terraform apply
+cd terraform && terraform init
+terraform apply -var="admin_cidr=$(curl -s https://checkip.amazonaws.com)/32"   # SSH and K3s API open to your IP only
 
 # 2. Install K3s, swap and join the workers (writes ./kubeconfig)
 cd ../ansible && ansible-playbook -i inventory.ini playbook.yml
@@ -88,7 +89,7 @@ cd .. && export KUBECONFIG=$(pwd)/kubeconfig
 ./scripts/install-argocd.sh
 
 # 5. At the end of the session, stay in the free tier
-cd terraform && terraform destroy
+cd terraform && terraform destroy -var="admin_cidr=$(curl -s https://checkip.amazonaws.com)/32"
 ```
 
 | Service | URL |

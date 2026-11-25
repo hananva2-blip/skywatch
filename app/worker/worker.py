@@ -59,9 +59,9 @@ def handle_query(city):
     try:
         return {"status": "done", "weather": fetch_weather(city)}
     except CityNotFound:
-        return {"status": "error", "error": f"City '{city}' not found"}
+        return {"status": "error", "reason": "not_found", "error": f"City '{city}' not found"}
     except requests.RequestException as exc:
-        return {"status": "error", "error": f"Weather API request failed: {exc}"}
+        return {"status": "error", "reason": "upstream", "error": f"Weather API request failed: {exc}"}
 
 
 def callback(ch, method, properties, body):

@@ -45,12 +45,23 @@ def test_query_missing_city(client):
 def test_query_city_not_found(client, mocker):
     mocker.patch(
         "app.frontend.app.request_weather",
-        return_value={"status": "error", "error": "City 'Atlantis' not found"},
+        return_value={"status": "error", "reason": "not_found", "error": "City 'Atlantis' not found"},
     )
 
     response = client.post("/query", data={"city": "Atlantis"})
     assert response.status_code == 404
     assert "not found" in response.get_json()["error"]
+
+
+def test_query_weather_api_down(client, mocker):
+    mocker.patch(
+        "app.frontend.app.request_weather",
+        return_value={"status": "error", "reason": "upstream", "error": "Weather API request failed: timeout"},
+    )
+
+    response = client.post("/query", data={"city": "Haifa"})
+    assert response.status_code == 502
+    assert "Weather API request failed" in response.get_json()["error"]
 
 
 def test_query_worker_timeout(client, mocker):
